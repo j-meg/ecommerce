@@ -7,14 +7,15 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(express.json())
-app.use(cors())
+app.use(cors());
+app.use(express.json());
 
 // Routes
 import productRouter from "./routes/products";
 import customerRouter from "./routes/customers";
 import orderRouter from "./routes/orders";
 import orderItemRouter from "./routes/orderItems";
+import { IOrderItem } from "./models/IOrderItem";
 app.use('/products', productRouter)
 app.use('/customers', customerRouter)
 app.use('/orders', orderRouter)
@@ -24,18 +25,32 @@ app.use('/order-items', orderItemRouter)
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 app.post('/create-checkout-session', async (req: Request, res: Response) => {
-  const {line_items, order_id} = req.body;
+  const payload = req.body.payload;
 
   const session = await stripe.checkout.sessions.create({
-    line_items: [line_items],
+    line_items: [payload.line_items.map((lineItem) => (
+      {
+        price_data: {
+          currency: 'SEK',
+          product_data: {
+            name: lineItem.product_name,
+          },
+          unit_amount: lineItem.unit_price * 100,
+        },
+        quantity: lineItem.quantity,
+      }
+    ))
+  ],
     mode: 'payment',
-    ui_mode: 'embedded',
-    return_url: 'http://localhost:5173/order-confirmation?session_id={CHECKOUT_SESSION_ID}',
-    client_reference_id: order_id,
+    success_url: 'http://localhost:5173/order-confirmation?session_id={CHECKOUT_SESSION_ID}',
+    cancel_url: 'http://localhost:5173/checkout',
+    client_reference_id: payload.order_id,
   });
 
-  res.send({ clientSecret: session.client_secret, session_id: session.id });
+  res.json({checkout_url: session.url});
+
 });
+
 
 // Attempt to connect to the database
 connectDB()

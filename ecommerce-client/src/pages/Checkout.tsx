@@ -1,17 +1,12 @@
 import { useState, FormEvent, useEffect } from "react";
-import React from "react";
 import { NavLink } from "react-router";
 import { useCart } from "../hooks/useCart";
 import { useOrders } from "../hooks/useOrders";
 import { useCustomers } from "../hooks/useCustomers";
 import { CartItem } from "../models/CartItem";
-import { IOrder, IOrderCreate, IOrderItem } from "../models/IOrder";
+import { IOrderCreate, IOrderItem } from "../models/IOrder";
 import { ICustomer, ICustomerCreate } from "../models/ICustomer";
-import { loadStripe } from '@stripe/stripe-js';
-import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js';
 
-
-const stripePromise = loadStripe('pk_test_51R7Hmt2aq8YOrfF8CAWb37RRT4USrFMy5xVhJEmJe0s6g1ovm6cEnGT5M9hJsjZcLmoqZUu4GEAllgmgweUWMUY900D5NzKTS4');
 
 export const Checkout = () => {
 
@@ -20,14 +15,28 @@ export const Checkout = () => {
         total + (item.quantity * item.product.price)
     ), 0);
 
-    const [content] = useState<IOrderCreate>({}); 
-    const [customerContent] = useState<ICustomerCreate>({}); 
-    const [order, setOrder] = useState<IOrder>();
-    const [customer, setCustomer] = useState<ICustomer>({})
-    const [checkoutEmbeded, setCheckoutEmbeded] = useState(false);
+    const [customer] = useState<ICustomer>(() => {
+        const cachedCustomer = localStorage.getItem('customer')
+        return cachedCustomer ? JSON.parse(cachedCustomer) : []
+    });
+
+    const content: IOrderCreate = {customer_id: 0, payment_status: 'unpaid', payment_id: null, order_status: 'pending', order_items: []}; 
+    const customerContent: ICustomerCreate = {
+        firstname: customer.firstname, 
+        lastname: customer.lastname, 
+        email: customer.email, 
+        password: customer.password, 
+        phone: customer.phone, 
+        street_address: customer.street_address, 
+        postal_code: customer.postal_code, 
+        city: customer.city, 
+        country: customer.country
+    }; 
+
+
     const {isLoading, error, createOrderHandler} = useOrders();
     const {customers, createCustomerHandler, fetchCustomersHandler} = useCustomers();
-    useEffect(() => {fetchCustomersHandler()}, [])
+    useEffect(() => {fetchCustomersHandler()}, []);
     
 
     const orderItems: IOrderItem[] = cart.map((cartItem) => {
@@ -47,43 +56,45 @@ export const Checkout = () => {
             !customerContent.email || !customerContent.firstname || 
             !customerContent.lastname || !customerContent.phone || 
             ! customerContent.postal_code || !customerContent.street_address) {
-            return setCheckoutEmbeded(false);
+                console.log('missing customer information')
         } else { 
             customers.map(async (c) => {
                 if (c.email === customerContent.email) {
-                    setCustomer(c);
+                    content.customer_id = c.id;
+                    localStorage.setItem('customer', JSON.stringify(c))
                 }
-                const createCustomer = await createCustomerHandler(customerContent);
-                setCustomer(createCustomer);
             })
-        };
+            const createCustomer = await createCustomerHandler(customerContent);
+            content.customer_id = createCustomer.id;
+            localStorage.setItem('customer', JSON.stringify(customerContent))
 
-        content.customer_id = customer.id;
-        content.payment_status = 'unpaid';
-        content.payment_id = null;
-        content.order_status = 'pending';
+        };
         content.order_items = orderItems;
 
         const order = await createOrderHandler(content);
-        setOrder(order);
-        setCheckoutEmbeded(true);
+        const payload = {
+            line_items: orderItems,
+            order_id: order?.id,
+        };
+        console.log(payload)
+    
+        try {
+            const response = await fetch('http://localhost:3000/create-checkout-session', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({payload}) 
+            });
+      
+            const data = await response.json();
+            console.log(data.checkout_url);
+      
+            window.location.href = data.checkout_url
+        } catch(error) {
+            console.log(error)
+        }
     };
-
-    const payload = {
-        line_items: orderItems,
-        order_id: order?.id,
-    };
-
-    const fetchClientSecret = React.useCallback(() => {
-        return fetch("http://localhost:3000/create-checkout-session", {
-            method: "POST",
-            body: JSON.stringify({payload})
-        })
-        .then((res) => res.json())
-        .then((data) => data.clientSecret);
-    }, []);
-        
-    const options = {fetchClientSecret};
 
         
     if (isLoading) return <p>Loading...</p>
@@ -91,61 +102,50 @@ export const Checkout = () => {
 
     return (
         <>
-            {checkoutEmbeded ? 
-                <div id="checkout">
-                <EmbeddedCheckoutProvider
-                    stripe={stripePromise}
-                    options={options}>
-                    <EmbeddedCheckout />
-                </EmbeddedCheckoutProvider>
-                </div> : 
-                <>
-                <section id="create-customer">
-                    <form onSubmit={handleSubmit}>
-                        <label>Förnamn: 
-                            <input type="text" name="firstname" onChange={(e) => (customerContent.firstname = e.target.value)}/>
-                        </label>
-                        <label>Efternamn: 
-                            <input type="text" name="lastname" onChange={(e) => (customerContent.lastname = e.target.value)}/>
-                        </label>
-                        <label>Epost: 
-                            <input type="text" name="email" onChange={(e) => (customerContent.email = e.target.value)}/>
-                        </label>
-                        <label>Telefonnummer: 
-                            <input type="text" name="phone" onChange={(e) => (customerContent.phone = e.target.value)}/>
-                        </label>
-                        <label>Adress: 
-                            <input type="text" name="street_address" onChange={(e) => (customerContent.street_address = e.target.value)}/>
-                        </label>
-                        <label>Postkod: 
-                            <input type="text" name="postal_code" onChange={(e) => (customerContent.postal_code = e.target.value)}/>
-                        </label>
-                        <label>Stad: 
-                            <input type="text" name="city" onChange={(e) => (customerContent.city = e.target.value)}/>
-                        </label>
-                        <label>Land: 
-                            <input type="text" name="country" onChange={(e) => (customerContent.country = e.target.value)}/>
-                        </label>
-                        <br />
-                        <button><NavLink to={"/cart"}>Tillbaka</NavLink></button>
-                        <button>Betala</button>
-                    </form>
-                </section>
+            <section id="create-customer">
+                <form onSubmit={handleSubmit}>
+                    <label>Förnamn: 
+                        <input type="text" name="firstname" defaultValue={customer.firstname} onChange={(e) => (customerContent.firstname = e.target.value)}/>
+                    </label>
+                    <label>Efternamn: 
+                        <input type="text" name="lastname" defaultValue={customer.lastname} onChange={(e) => (customerContent.lastname = e.target.value)}/>
+                    </label>
+                    <label>Epost: 
+                        <input type="text" name="email" defaultValue={customer.email} onChange={(e) => (customerContent.email = e.target.value)}/>
+                    </label>
+                    <label>Telefonnummer: 
+                        <input type="text" name="phone" defaultValue={customer.phone} onChange={(e) => (customerContent.phone = e.target.value)}/>
+                    </label>
+                    <label>Adress: 
+                        <input type="text" name="street_address" defaultValue={customer.street_address} onChange={(e) => (customerContent.street_address = e.target.value)}/>
+                    </label>
+                    <label>Postkod: 
+                        <input type="text" name="postal_code" defaultValue={customer.postal_code} onChange={(e) => (customerContent.postal_code = e.target.value)}/>
+                    </label>
+                    <label>Stad: 
+                        <input type="text" name="city" defaultValue={customer.city} onChange={(e) => (customerContent.city = e.target.value)}/>
+                    </label>
+                    <label>Land: 
+                        <input type="text" name="country" defaultValue={customer.country} onChange={(e) => (customerContent.country = e.target.value)}/>
+                    </label>
+                    <br />
+                    <button><NavLink to={"/cart"}>Tillbaka</NavLink></button>
+                    <button>Betala</button>
+                </form>
+            </section>
 
-                <ul className='cart-list'>
-                    { cart.map((item) => (
-                        <li key={item.product.id}>
-                            <div className='cart-list-item'>
-                            <h3>{item.product.name}</h3>
-                            <p>{item.quantity} X {item.product.price} kr</p>
-                            </div>
-                        </li>
-                    ))
-                    }
-                </ul>
-
-                <h3>Total: {totalCartPrice} kr</h3> 
-            </>}
+            <ul className='cart-list'>
+                { cart.map((item) => (
+                    <li key={item.product.id}>
+                        <div className='cart-list-item'>
+                        <h3>{item.product.name}</h3>
+                        <p>{item.quantity} X {item.product.price} kr</p>
+                        </div>
+                    </li>
+                ))
+                }
+            </ul>
+            <h3>Total: {totalCartPrice} kr</h3> 
         </>
     )
 };
