@@ -28,7 +28,7 @@ app.post('/create-checkout-session', async (req: Request, res: Response) => {
   const payload = req.body.payload;
 
   const session = await stripe.checkout.sessions.create({
-    line_items: [payload.line_items.map((lineItem) => (
+  line_items: payload.line_items.map((lineItem) => (
       {
         price_data: {
           currency: 'SEK',
@@ -39,8 +39,7 @@ app.post('/create-checkout-session', async (req: Request, res: Response) => {
         },
         quantity: lineItem.quantity,
       }
-    ))
-  ],
+    )),
     mode: 'payment',
     success_url: 'http://localhost:5173/order-confirmation?session_id={CHECKOUT_SESSION_ID}',
     cancel_url: 'http://localhost:5173/checkout',
@@ -48,9 +47,7 @@ app.post('/create-checkout-session', async (req: Request, res: Response) => {
   });
 
   res.json({checkout_url: session.url});
-
 });
-
 
 // Attempt to connect to the database
 connectDB()

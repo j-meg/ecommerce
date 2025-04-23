@@ -76,7 +76,6 @@ export const Checkout = () => {
             line_items: orderItems,
             order_id: order?.id,
         };
-        console.log(payload)
     
         try {
             const response = await fetch('http://localhost:3000/create-checkout-session', {
