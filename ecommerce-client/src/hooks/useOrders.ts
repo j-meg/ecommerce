@@ -36,7 +36,7 @@ export const useOrders = () => {
         }
     };
 
-    const fetchOrderByPaymentIDHandler = async (id: number) => {
+    const fetchOrderByPaymentIDHandler = async (id: string) => {
         setIsLoading(true);
     
         try {

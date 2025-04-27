@@ -10,7 +10,7 @@ export const fetchOrderByID = async (id: number): Promise<IOrder> => {
     return await handleRequest<IOrder>( axios.get(`${API_URL}/orders/${id}`))
 };
 
-export const fetchOrderByPaymentID = async (id: number): Promise<IOrder> => {
+export const fetchOrderByPaymentID = async (id: string): Promise<IOrder> => {
     return await handleRequest<IOrder>( axios.get(`${API_URL}/orders/${id}`))
 };
   

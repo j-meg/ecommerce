@@ -16,6 +16,7 @@ import customerRouter from "./routes/customers";
 import orderRouter from "./routes/orders";
 import orderItemRouter from "./routes/orderItems";
 import { IOrderItem } from "./models/IOrderItem";
+import { getOrderById, updateOrder } from "./controllers/orderController";
 app.use('/products', productRouter)
 app.use('/customers', customerRouter)
 app.use('/orders', orderRouter)
@@ -41,7 +42,7 @@ app.post('/create-checkout-session', async (req: Request, res: Response) => {
       }
     )),
     mode: 'payment',
-    success_url: 'http://localhost:5173/order-confirmation?session_id={CHECKOUT_SESSION_ID}',
+    success_url: `http://localhost:5173/order-confirmation?session_id={CHECKOUT_SESSION_ID}&order_id=${payload.order_id}`,
     cancel_url: 'http://localhost:5173/checkout',
     client_reference_id: payload.order_id,
   });
