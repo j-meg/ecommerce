@@ -4,7 +4,7 @@ import { useCart } from "../hooks/useCart";
 import { useOrders } from "../hooks/useOrders";
 import { useCustomers } from "../hooks/useCustomers";
 import { CartItem } from "../models/CartItem";
-import { IOrderCreate, IOrderItem } from "../models/IOrder";
+import { IOrderCreate, IOrderItem, IOrderUpdate } from "../models/IOrder";
 import { ICustomer, ICustomerCreate } from "../models/ICustomer";
 
 
@@ -34,7 +34,7 @@ export const Checkout = () => {
     }; 
 
 
-    const {isLoading, error, createOrderHandler} = useOrders();
+    const {isLoading, error, createOrderHandler, updateOrderHandler} = useOrders();
     const {customers, createCustomerHandler, fetchCustomersHandler} = useCustomers();
     useEffect(() => {fetchCustomersHandler()}, []);
     
@@ -88,8 +88,14 @@ export const Checkout = () => {
       
             const data = await response.json();
             console.log(data.checkout_url);
+            console.log(data.sessionID)
       
             window.location.href = data.checkout_url
+
+            let updateInfo: IOrderUpdate = {payment_id: data.sessionID, payment_status: 'Unpaid', order_status: 'Pending'}
+            const updateResponse = await updateOrderHandler(order.id, updateInfo)
+            console.log(updateResponse)
+
         } catch(error) {
             console.log(error)
         }

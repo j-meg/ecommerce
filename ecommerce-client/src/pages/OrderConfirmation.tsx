@@ -7,16 +7,12 @@ export const OrderConfirmation = () => {
 
     let params =  new URLSearchParams(document.location.search);
     let session_id = params.get("session_id");
-    // let order_id = params.get("order_id");
 
     const { fetchOrderByPaymentIDHandler, updateOrderHandler } = useOrders();
     const [order, setOrder] = useState<IOrder>();
 
     useEffect(() => {
         const getOrder = async () => {
-            // if (!order_id) return;
-            // const data = await fetchOrderByIdHandler(parseInt(order_id)); 
-            // setOrder(data);
 
             if (!session_id) return;
             const data = await fetchOrderByPaymentIDHandler(session_id); 
@@ -24,7 +20,7 @@ export const OrderConfirmation = () => {
 
             if (session_id && data) {
                 const content: IOrderUpdate = {payment_status: "Paid", payment_id: session_id, order_status: "Received"}; 
-                updateOrderHandler(data.id, content);
+                await updateOrderHandler(data.id, content);
             };
         };
         if (order) return;

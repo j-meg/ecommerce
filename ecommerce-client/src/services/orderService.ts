@@ -11,7 +11,7 @@ export const fetchOrderByID = async (id: number): Promise<IOrder> => {
 };
 
 export const fetchOrderByPaymentID = async (id: string): Promise<IOrder> => {
-    return await handleRequest<IOrder>( axios.get(`${API_URL}/orders/${id}`))
+    return await handleRequest<IOrder>( axios.get(`${API_URL}/orders/payment/${id}`))
 };
   
 export const createOrder = async (payload: IOrderCreate): Promise<IOrder> => {

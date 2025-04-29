@@ -37,8 +37,8 @@ export const getOrders = async (_: any, res: Response) => {
     res.json(rows);
   } catch (error) {
     res.status(500).json({error: logError(error)})
-  };
-};
+  }
+}
 
 export const getOrderById = async (req: Request, res: Response) => {
   const id: string = req.params.id;
@@ -47,6 +47,7 @@ export const getOrderById = async (req: Request, res: Response) => {
     const sql = `
       SELECT 
         *, 
+        orders.id AS order_id,
         orders.created_at AS orders_created_at, 
         customers.created_at AS customers_created_at 
       FROM orders 
@@ -59,15 +60,42 @@ export const getOrderById = async (req: Request, res: Response) => {
     // return;
 
     rows && rows.length > 0
-      ? res.json(formatOrderDetails(id, rows))
+      ? res.json(formatOrderDetails(rows))
       : res.status(404).json({message: 'Order not found'})
   } catch (error) {
     res.status(500).json({error: logError(error)})
-  };
-};
+  }
+}
 
-const formatOrderDetails = (orderId, rows) => ({
-  id: orderId,
+export const getOrderByPaymentId = async (req: Request, res: Response) => {
+  const id: string = req.params.id;
+  
+  try {
+    const sql = `
+      SELECT 
+        *, 
+        orders.id AS order_id,
+        orders.created_at AS orders_created_at, 
+        customers.created_at AS customers_created_at 
+      FROM orders 
+      LEFT JOIN customers ON orders.customer_id = customers.id
+      LEFT JOIN order_items ON orders.id = order_items.order_id
+      WHERE orders.payment_id = ?
+    `;
+    const [rows] = await db.query<IOrder[]>(sql, [id])
+    // res.json(rows)
+    // return;
+
+    rows && rows.length > 0
+      ? res.json(formatOrderDetails(rows))
+      : res.status(404).json({message: 'Order not found'})
+  } catch (error) {
+    res.status(500).json({error: logError(error)})
+  }
+}
+
+const formatOrderDetails = (rows: IOrder[]) => ({
+  id: rows[0].order_id,
   customer_id: rows[0].customer_id,
   total_price: rows[0].total_price,
   payment_status: rows[0].payment_status,
@@ -101,7 +129,7 @@ export const createOrder = async (req: Request, res: Response) => {
       VALUES (?, ?, ?, ?, ?)
     `;
 
-    const totalPrice = req.body.order_items.reduce((total, item) => total + (item.quantity * item.unit_price), 0);
+    const totalPrice = req.body.order_items.reduce((total: number, item: IOrderItem) => total + (item.quantity * item.unit_price), 0);
     const params = [customer_id, totalPrice, payment_status, payment_id, order_status]
     const [result] = await db.query<ResultSetHeader>(sql, params)
     if (result.insertId) {
@@ -111,13 +139,13 @@ export const createOrder = async (req: Request, res: Response) => {
         const data = {...orderItem, order_id}
         await createOrderItem(data)
       };
-    };
+    }
 
     res.status(201).json({message: 'Order created', id: result.insertId});
   } catch(error: unknown) {
     res.status(500).json({error: logError(error)})
-  };
-};
+  }
+}
 
 const createOrderItem = async (data: IOrderItem) => {
   const {order_id, product_id, product_name, quantity, unit_price} = data;
@@ -135,8 +163,8 @@ const createOrderItem = async (data: IOrderItem) => {
     await db.query<ResultSetHeader>(sql, params)
   } catch(error) {
     throw new Error;
-  };
-};
+  }
+}
 
 export const updateOrder = async (req: Request, res: Response) => {
   const id: string = req.params.id;
@@ -156,8 +184,8 @@ export const updateOrder = async (req: Request, res: Response) => {
       : res.json({message: 'Order updated'});
   } catch(error) {
     res.status(500).json({error: logError(error)})
-  };
-};
+  }
+}
 
 export const deleteOrder = async (req: Request, res: Response) => {
   const id: string = req.params.id;
@@ -171,5 +199,5 @@ export const deleteOrder = async (req: Request, res: Response) => {
       : res.json({message: 'Order deleted'});
   } catch (error) {
     res.status(500).json({error: logError(error)})
-  };
-};
+  }
+}
